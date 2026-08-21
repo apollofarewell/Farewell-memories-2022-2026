@@ -907,25 +907,23 @@ textarea.wish-form-input{min-height:90px;resize:vertical;}
 .hero-slide.active{opacity:1;visibility:visible;}
 
 /* ── COUNTDOWN -> CINEMATIC HERO HANDOFF ── */
-/* Keep the hero animation paused until the 5→4→3→2→1→🎉 intro is completely gone. */
-.hero-content-layer .hero-anim{opacity:0;animation:none !important;transform:translateY(24px) scale(.985);}
-.hero-slide.active .batch-card-photo img{animation:none !important;transform:scale(1.18);filter:blur(8px);opacity:.35;}
+.hero-content-layer .hero-anim{opacity:1;transform:none;}
 .home-hero.cinematic-start .hero-slide.active .batch-card-photo img{
   animation:cinematicPhotoOpening 1.15s cubic-bezier(.2,.75,.2,1) forwards !important;
 }
 @keyframes cinematicPhotoOpening{
-  0%{transform:scale(1.18);filter:blur(8px);opacity:.35;}
-  40%{filter:blur(2px);opacity:.78;}
-  100%{transform:scale(1.045);filter:blur(0);opacity:1;}
+  0%{transform:scale(1.08);filter:blur(4px);opacity:.7;}
+  50%{filter:blur(0);opacity:1;}
+  100%{transform:scale(1.02);filter:blur(0);opacity:1;}
 }
-.home-hero.cinematic-start .batch-card-eyebrow.hero-anim{animation:cinematicTextIn .42s cubic-bezier(.22,.9,.3,1) .82s both !important;}
-.home-hero.cinematic-start .home-hero-title.hero-anim{animation:cinematicTextIn .45s cubic-bezier(.22,.9,.3,1) 1.00s both !important;}
-.home-hero.cinematic-start .home-hero-year.hero-anim{animation:cinematicTextIn .42s cubic-bezier(.22,.9,.3,1) 1.18s both !important;}
-.home-hero.cinematic-start .hero-divider.hero-anim{animation:cinematicDividerIn .35s ease 1.30s both !important;}
-.home-hero.cinematic-start .home-hero-quote.hero-anim{animation:cinematicTextIn .45s cubic-bezier(.22,.9,.3,1) 1.38s both !important;}
+.home-hero.cinematic-start .batch-card-eyebrow.hero-anim{animation:cinematicTextIn .42s cubic-bezier(.22,.9,.3,1) .2s both !important;}
+.home-hero.cinematic-start .home-hero-title.hero-anim{animation:cinematicTextIn .45s cubic-bezier(.22,.9,.3,1) .35s both !important;}
+.home-hero.cinematic-start .home-hero-year.hero-anim{animation:cinematicTextIn .42s cubic-bezier(.22,.9,.3,1) .5s both !important;}
+.home-hero.cinematic-start .hero-divider.hero-anim{animation:cinematicDividerIn .35s ease .62s both !important;}
+.home-hero.cinematic-start .home-hero-quote.hero-anim{animation:cinematicTextIn .45s cubic-bezier(.22,.9,.3,1) .72s both !important;}
 @keyframes cinematicTextIn{
-  0%{opacity:0;transform:translateX(-42px) translateY(10px) scale(.98);filter:blur(6px);}
-  60%{opacity:1;filter:blur(0);}
+  0%{opacity:0;transform:translateX(-25px) translateY(8px) scale(.98);filter:blur(4px);}
+  70%{opacity:1;filter:blur(0);}
   100%{opacity:1;transform:translateX(0) translateY(0) scale(1);}
 }
 @keyframes cinematicDividerIn{

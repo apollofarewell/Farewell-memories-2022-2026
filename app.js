@@ -102,8 +102,6 @@ function startHeroSlideshow(){
 function startCinematicHero(){
   const hero = document.getElementById('homeHero');
   if (!hero) return;
-  hero.classList.remove('cinematic-start');
-  void hero.offsetWidth;
   hero.classList.add('cinematic-start');
   startHeroSlideshow();
 }
@@ -125,9 +123,11 @@ function showPage(id, navEl){
     pg.classList.add('fade-in');
   }
   if (mainEl) {
-    mainEl.style.padding = '24px 28px';
     mainEl.style.overflowY = 'auto';
     mainEl.scrollTop = 0;
+  }
+  if (id === 'home') {
+    startCinematicHero();
   }
   if (navEl) navEl.classList.add('active');
   else {
@@ -1143,12 +1143,18 @@ async function loadDynamicSiteData() {
     }
   } catch (err) {
     console.warn('[API Load Warning]', err);
+  } finally {
+    startCinematicHero();
   }
 }
 
 // Initial Data Load on Page Ready
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', loadDynamicSiteData);
+  document.addEventListener('DOMContentLoaded', () => {
+    loadDynamicSiteData();
+    startCinematicHero();
+  });
 } else {
   loadDynamicSiteData();
+  startCinematicHero();
 }
