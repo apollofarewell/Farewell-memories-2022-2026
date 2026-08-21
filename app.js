@@ -147,11 +147,23 @@ const VIBES = [
   'The Music Head 🎵', 'The Philosopher 🤔', 'The Sleepy One 😴', 'The Hype Person 📣'
 ];
 let students = [];
+let activeAlphaFilter = 'ALL';
 
 function renderStudents(list){
   const grid = document.getElementById('studentsGrid');
   if (!grid) return;
   grid.innerHTML = '';
+  
+  const countBadge = document.getElementById('studentCountBadge');
+  if (countBadge) {
+    countBadge.textContent = `${list.length} Student${list.length === 1 ? '' : 's'}`;
+  }
+
+  if (!list.length) {
+    grid.innerHTML = `<div class="pinned-empty" style="grid-column:1/-1; padding:36px; text-align:center;">No students found matching your filter 🔍</div>`;
+    return;
+  }
+
   list.forEach((s, localIdx) => {
     const realIdx = students.indexOf(s);
     const card = document.createElement('div');
@@ -165,8 +177,31 @@ function renderStudents(list){
   });
 }
 
+function filterByAlpha(letter, el){
+  activeAlphaFilter = letter.toUpperCase();
+  document.querySelectorAll('.alpha-chip').forEach(c => c.classList.remove('active'));
+  if (el) el.classList.add('active');
+  
+  const query = document.getElementById('studentSearchInput')?.value.trim().toLowerCase() || '';
+  applyStudentFilters(query, activeAlphaFilter);
+}
+
 function searchStudents(q){
-  renderStudents(q ? students.filter(s => s.name.toLowerCase().includes(q.toLowerCase()) || s.vibes.toLowerCase().includes(q.toLowerCase())) : students);
+  applyStudentFilters(q.toLowerCase(), activeAlphaFilter);
+}
+
+function applyStudentFilters(query, alpha){
+  let filtered = students;
+  if (alpha && alpha !== 'ALL') {
+    filtered = filtered.filter(s => (s.name || '').trim().toUpperCase().startsWith(alpha));
+  }
+  if (query) {
+    filtered = filtered.filter(s =>
+      (s.name || '').toLowerCase().includes(query) ||
+      (s.vibes || '').toLowerCase().includes(query)
+    );
+  }
+  renderStudents(filtered);
 }
 
 function openPhotoViewer(s, type){
@@ -218,6 +253,61 @@ if (photoViewerEl) {
   window.addEventListener('resize', hideFooter);
   window._checkFooterVisibility = hideFooter;
 })();
+
+// ══ FLOATING AUDIO EQUALIZER & ANTHEM PLAYER ══
+let bgAudio = null;
+let isAudioPlaying = false;
+
+function toggleMusicPlayback(){
+  if (!bgAudio) {
+    bgAudio = new Audio('https://media.errand.ltd/farewell/audio/anthem.mp3');
+    bgAudio.loop = true;
+    bgAudio.volume = 0.65;
+    bgAudio.addEventListener('ended', () => {
+      isAudioPlaying = false;
+      updateMusicPlayerUI();
+    });
+  }
+
+  if (isAudioPlaying) {
+    bgAudio.pause();
+    isAudioPlaying = false;
+  } else {
+    bgAudio.play().then(() => {
+      isAudioPlaying = true;
+      updateMusicPlayerUI();
+    }).catch(() => {
+      showToast('🎵 Click anywhere to allow audio playback');
+    });
+  }
+  updateMusicPlayerUI();
+}
+
+function updateMusicPlayerUI(){
+  const player = document.getElementById('floatingMusicPlayer');
+  const playBtn = document.getElementById('floatingPlayBtn');
+  const status = document.getElementById('musicPlayerStatus');
+  if (player) player.classList.toggle('playing', isAudioPlaying);
+  if (playBtn) playBtn.textContent = isAudioPlaying ? '❚❚' : '▶';
+  if (status) status.textContent = isAudioPlaying ? 'Playing Farewell Anthem 🎵' : 'Tap to play anthem';
+}
+
+function pickEmoji(emoji){
+  const textEl = document.getElementById('msgText');
+  const selectEl = document.getElementById('msgEmoji');
+  if (textEl) {
+    textEl.value += ' ' + emoji;
+    textEl.focus();
+  }
+  if (selectEl) {
+    for (let i = 0; i < selectEl.options.length; i++) {
+      if (selectEl.options[i].value === emoji) {
+        selectEl.selectedIndex = i;
+        break;
+      }
+    }
+  }
+}
 
 // ══ MESSAGES / WISHES ══
 async function addMessage(){
@@ -576,9 +666,42 @@ function renderMemories(){
         </div>
       </div>`;
     card.onclick = () => openMemDetail(i);
+    
+    // Double tap heart gesture on memory photo
+    const imgWrap = card.querySelector('.mem-card-img-wrap');
+    if (imgWrap) {
+      let lastTap = 0;
+      imgWrap.addEventListener('click', (e) => {
+        const now = Date.now();
+        if (now - lastTap < 320) {
+          e.stopPropagation();
+          triggerDoubleTapHeart(card, i);
+        }
+        lastTap = now;
+      });
+    }
+
     grid.appendChild(card);
     observeReveal(card);
   });
+}
+
+function triggerDoubleTapHeart(card, i){
+  let heart = card.querySelector('.double-tap-heart');
+  if (!heart) {
+    heart = document.createElement('div');
+    heart.className = 'double-tap-heart';
+    heart.textContent = '❤️';
+    card.querySelector('.mem-card-img-wrap')?.appendChild(heart);
+  }
+  heart.classList.remove('animate');
+  void heart.offsetWidth;
+  heart.classList.add('animate');
+  const mem = memories[i];
+  if (mem && !mem.liked) {
+    const likeBtn = card.querySelector('.mem-action');
+    quickLikeMem(i, likeBtn);
+  }
 }
 
 function renderPinnedMemories(){
