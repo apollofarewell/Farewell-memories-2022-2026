@@ -696,6 +696,7 @@ body{
   transition:all 0.2s;
 }
 .card-del:hover{background:rgba(255,50,50,0.3);transform:scale(1.08);}
+.card-del{display:none !important;}
 
 @keyframes envelopeOpen{
   0%{opacity:0;transform:perspective(600px) rotateX(-35deg) translateY(-10px) scale(0.96);transform-origin:top center;}
@@ -757,6 +758,38 @@ textarea.wish-form-input{min-height:90px;resize:vertical;}
 .pv-vibes{color:var(--text-muted);font-size:0.85rem;font-style:italic;text-align:center;}
 .pv-close{position:absolute;top:20px;right:20px;color:#fff;font-size:2rem;cursor:pointer;background:rgba(255,255,255,0.1);border:none;width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;transition:background 0.2s;}
 .pv-close:hover{background:rgba(255,255,255,0.25);}
+
+/* ── STUDENT PHOTO FULL-SIZE VIEWER ── */
+.student-photo{cursor:zoom-in;}
+.student-fullview{display:none;position:fixed;inset:0;z-index:7000;background:rgba(0,0,0,0.98);align-items:center;justify-content:center;padding:20px;}
+.student-fullview.open{display:flex;animation:memFadeIn 0.2s ease;}
+.student-fullview img{max-width:100%;max-height:100%;object-fit:contain;user-select:none;border-radius:8px;}
+.sfv-close{position:absolute;top:20px;right:20px;color:#fff;font-size:1.8rem;cursor:pointer;background:rgba(255,255,255,0.12);border:none;width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;z-index:2;transition:background 0.2s;}
+.sfv-close:hover{background:rgba(255,255,255,0.25);}
+
+/* ── FLOATING WRITE-A-WISH BUTTON ── */
+.wish-fab{
+  position:fixed;left:74px;bottom:26px;z-index:850;
+  width:44px;height:44px;border-radius:50%;border:1px solid rgba(255,255,255,0.15);
+  background:linear-gradient(135deg, var(--pink), var(--purple));color:#fff;
+  font-size:1.05rem;display:none;align-items:center;justify-content:center;
+  cursor:pointer;box-shadow:0 6px 18px rgba(157,78,221,0.45);
+  transition:all 0.25s cubic-bezier(0.4,0,0.2,1);
+}
+.wish-fab.show{display:flex;}
+.wish-fab:hover{transform:scale(1.1);box-shadow:0 8px 24px rgba(255,94,142,0.55);}
+.wish-fab::after{
+  content:"Write a wish";position:absolute;left:52px;top:50%;
+  transform:translateY(-50%) translateX(-6px);
+  background:rgba(10,4,22,0.94);color:#fff;font-size:0.7rem;font-weight:600;
+  padding:6px 10px;border-radius:8px;white-space:nowrap;opacity:0;pointer-events:none;
+  border:1px solid var(--border-subtle);transition:all 0.2s ease;
+}
+.wish-fab:hover::after{opacity:1;transform:translateY(-50%) translateX(0);}
+@media(max-width:700px){
+  .wish-fab{left:56px;bottom:18px;width:40px;height:40px;font-size:0.95rem;}
+  .wish-fab::after{left:48px;font-size:0.65rem;}
+}
 
 /* ── FULLSCREEN MEMORY PHOTO VIEWER ── */
 .mem-fullview{display:none;position:fixed;inset:0;z-index:7000;background:rgba(0,0,0,0.98);align-items:center;justify-content:center;}
@@ -1100,12 +1133,12 @@ textarea.wish-form-input{min-height:90px;resize:vertical;}
   <div class="page-header">
     <div class="page-tag tag-pink">From the Heart 💌</div>
     <div class="page-title" data-editable="true" contenteditable="false">Wishes & Messages</div>
-    <div class="page-desc" data-editable="true" contenteditable="false">Anyone can leave a wish. Say something nice, something funny, or something only a fellow Pharm student would get. Mostly the last one. 😄</div>
+    <div class="page-desc" data-editable="true" contenteditable="false">Say what you never got the chance to say. A wish, a memory, or just a few words to remember them by — mostly the last one. 😄</div>
   </div>
   <div class="post-grid" id="messagesGrid">
-    <div class="message-card seed-wish"><div class="msg-emoji">🥹</div><div class="msg-quote">"</div><div class="msg-text">You didn't just teach us lessons — you taught us how to laugh through them. Miss you already!</div><div class="msg-author">— Your Favourite Juniors 💜</div><button class="card-del" onclick="this.closest('.message-card').remove();updateWishCount()">🗑</button></div>
-    <div class="message-card seed-wish"><div class="msg-emoji">😂</div><div class="msg-quote">"</div><div class="msg-text">We'll miss your laugh, your chaos, and your ability to make every boring lecture entertaining. Legend confirmed.</div><div class="msg-author">— The Whole Gang 🎉</div><button class="card-del" onclick="this.closest('.message-card').remove();updateWishCount()">🗑</button></div>
-    <div class="message-card seed-wish"><div class="msg-emoji">❤️</div><div class="msg-quote">"</div><div class="msg-text">Wherever life takes you, you left footprints on our hearts. And on the classroom walls. Please don't ask.</div><div class="msg-author">— With All Our Love 🌟</div><button class="card-del" onclick="this.closest('.message-card').remove();updateWishCount()">🗑</button></div>
+    <div class="message-card seed-wish"><div class="msg-emoji">🥹</div><div class="msg-quote">"</div><div class="msg-text">You didn't just teach us lessons — you taught us how to laugh through them. Miss you already!</div><div class="msg-author">— Your Favourite Juniors 💜</div></div>
+    <div class="message-card seed-wish"><div class="msg-emoji">😂</div><div class="msg-quote">"</div><div class="msg-text">We'll miss your laugh, your chaos, and your ability to make every boring lecture entertaining. Legend confirmed.</div><div class="msg-author">— The Whole Gang 🎉</div></div>
+    <div class="message-card seed-wish"><div class="msg-emoji">❤️</div><div class="msg-quote">"</div><div class="msg-text">Wherever life takes you, you left footprints on our hearts. And on the classroom walls. Please don't ask.</div><div class="msg-author">— With All Our Love 🌟</div></div>
   </div>
   <div class="wish-compose-card">
     <h3>✍️ Leave Your Wish & Note — Anyone Can Post!</h3>
@@ -1261,6 +1294,15 @@ textarea.wish-form-input{min-height:90px;resize:vertical;}
   <div class="pv-vibes" id="pvVibes"></div>
 </div>
 
+<!-- STUDENT PHOTO FULL VIEW (tap a student photo to open full size) -->
+<div class="student-fullview" id="studentFullView" onclick="if(event.target===this)closeStudentFullView()">
+  <button class="sfv-close" onclick="closeStudentFullView()">×</button>
+  <img id="studentFullViewImg" src="" alt=""/>
+</div>
+
+<!-- FLOATING WRITE-A-WISH BUTTON (only shown on Wishes & Messages page) -->
+<button class="wish-fab" id="wishFab" onclick="scrollToWishComposer()" aria-label="Write a wish">✍️</button>
+
 <!-- MEMORY PHOTO FULL VIEW (edge-to-edge, tap a memory photo to open) -->
 <div class="mem-fullview" id="memFullView" onclick="if(event.target===this)closeMemFullView()">
   <button class="mfv-close" onclick="closeMemFullView()">×</button>
@@ -1362,12 +1404,52 @@ textarea.wish-form-input{min-height:90px;resize:vertical;}
         screen.style.opacity='0';
         setTimeout(()=>{
           screen.remove();
-          startCinematicHero();
+          if(typeof startCinematicHero==='function') startCinematicHero();
         },150);
       },150);
     }
   },1000);
 })();
+</script>
+
+<script>
+  // ══ STUDENT PHOTO FULL-SIZE VIEWER ══
+  // Uses a capture-phase listener so it takes priority over any click
+  // handler app.js may already have attached to student cards, without
+  // needing to modify app.js itself.
+  document.addEventListener('click', function(e){
+    var photoEl = e.target.closest('.student-photo');
+    if(!photoEl) return;
+    var img = photoEl.querySelector('img');
+    if(!img || !img.getAttribute('src')) return; // no photo (initials-only card) — let default behavior run
+    e.stopPropagation();
+    e.preventDefault();
+    document.getElementById('studentFullViewImg').src = img.src;
+    document.getElementById('studentFullViewImg').alt = img.alt || '';
+    document.getElementById('studentFullView').classList.add('open');
+  }, true);
+
+  function closeStudentFullView(){
+    document.getElementById('studentFullView').classList.remove('open');
+  }
+
+  // ══ FLOATING WRITE-A-WISH BUTTON ══
+  (function(){
+    var fab = document.getElementById('wishFab');
+    var messagesPage = document.getElementById('page-messages');
+    if(!fab || !messagesPage) return;
+
+    function syncFabVisibility(){
+      fab.classList.toggle('show', messagesPage.classList.contains('active'));
+    }
+    syncFabVisibility();
+    new MutationObserver(syncFabVisibility).observe(messagesPage, {attributes:true, attributeFilter:['class']});
+  })();
+
+  function scrollToWishComposer(){
+    var target = document.querySelector('.wish-compose-card');
+    if(target) target.scrollIntoView({behavior:'smooth', block:'start'});
+  }
 </script>
 
 <script>
