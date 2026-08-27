@@ -635,40 +635,6 @@ body{
 .gallery-tab:hover{background:rgba(157,78,221,0.15);color:#fff;}
 .gallery-tab.active{background:linear-gradient(135deg,rgba(255,94,142,0.25),rgba(157,78,221,0.25));border-color:var(--pink);color:#fff;box-shadow:0 4px 14px rgba(157,78,221,0.3);}
 
-/* ── FLOATING GLASS EQUALIZER MUSIC PILL ── */
-.floating-music-player{
-  position:fixed;bottom:22px;right:22px;z-index:900;
-  display:flex;align-items:center;gap:12px;
-  background:rgba(18, 7, 36, 0.85);backdrop-filter:blur(24px);
-  -webkit-backdrop-filter:blur(24px);border:1px solid var(--border-glow);
-  border-radius:30px;padding:8px 16px 8px 12px;
-  box-shadow:0 12px 40px rgba(0,0,0,0.6), 0 0 20px rgba(157,78,221,0.3);
-  transition:all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  cursor:pointer;
-}
-.floating-music-player:hover{
-  border-color:var(--pink);transform:translateY(-2px);
-  box-shadow:0 16px 48px rgba(0,0,0,0.7), 0 0 25px rgba(255,94,142,0.45);
-}
-.player-play-btn{
-  width:36px;height:36px;border-radius:50%;border:none;
-  background:linear-gradient(135deg, var(--pink), var(--purple));
-  color:#fff;font-size:0.95rem;display:flex;align-items:center;justify-content:center;
-  cursor:pointer;transition:transform 0.2s;box-shadow:0 4px 14px rgba(255,94,142,0.4);
-  flex-shrink:0;
-}
-.player-play-btn:hover{transform:scale(1.08);}
-.player-details{display:flex;flex-direction:column;gap:1px;min-width:110px;}
-.player-title{font-family:var(--font-heading);font-size:0.75rem;font-weight:800;color:#fff;white-space:nowrap;}
-.player-sub{font-size:0.62rem;color:var(--text-muted);white-space:nowrap;}
-.player-equalizer{display:flex;align-items:flex-end;gap:3px;height:18px;margin-left:4px;}
-.eq-bar{width:3px;border-radius:2px;background:var(--pink);height:4px;transition:height 0.2s ease;}
-.floating-music-player.playing .eq-bar:nth-child(1){animation:eqBounce 0.8s ease-in-out infinite alternate;}
-.floating-music-player.playing .eq-bar:nth-child(2){animation:eqBounce 1.1s ease-in-out infinite alternate 0.2s;background:var(--purple);}
-.floating-music-player.playing .eq-bar:nth-child(3){animation:eqBounce 0.9s ease-in-out infinite alternate 0.4s;background:var(--cyan);}
-.floating-music-player.playing .eq-bar:nth-child(4){animation:eqBounce 1.2s ease-in-out infinite alternate 0.1s;}
-@keyframes eqBounce{0%{height:3px;}100%{height:17px;}}
-
 /* ── WISHES / MESSAGES SECTION ── */
 .post-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px;margin-bottom:24px;}
 .message-card{
@@ -934,7 +900,6 @@ textarea.wish-form-input{min-height:90px;resize:vertical;}
   </div>
 
   <div class="topbar-right">
-    <button class="player-play-btn" style="width:32px;height:32px;font-size:0.8rem;" onclick="toggleMusicPlayback()" title="Play Farewell Anthem">🎵</button>
   </div>
 </div>
 
@@ -1108,6 +1073,12 @@ textarea.wish-form-input{min-height:90px;resize:vertical;}
     <div class="pinned-row" id="pinnedMemRow"></div>
   </div>
   <div class="gallery-tabs" id="galleryTabs"></div>
+  <div class="gallery-tabs" id="photoCategoryFilter">
+    <div class="gallery-tab active" data-category="all" onclick="filterPhotosByCategory('all', this)">All</div>
+    <div class="gallery-tab" data-category="college" onclick="filterPhotosByCategory('college', this)">College</div>
+    <div class="gallery-tab" data-category="trip" onclick="filterPhotosByCategory('trip', this)">Trip</div>
+    <div class="gallery-tab" data-category="iv" data-sub="trip" style="display:none;" onclick="filterPhotosByCategory('iv', this)">IV</div>
+  </div>
   <div class="memories-grid" id="memoriesGrid"></div>
 </div>
 
@@ -1336,21 +1307,6 @@ textarea.wish-form-input{min-height:90px;resize:vertical;}
   </div>
 </div>
 
-<!-- ══ FLOATING MUSIC EQUALIZER PLAYER ══ -->
-<div class="floating-music-player" id="floatingMusicPlayer" onclick="toggleMusicPlayback()">
-  <button class="player-play-btn" id="floatingPlayBtn" aria-label="Play or pause anthem">▶</button>
-  <div class="player-details">
-    <div class="player-title">Farewell Memories 🎵</div>
-    <div class="player-sub" id="musicPlayerStatus">Tap to play anthem</div>
-  </div>
-  <div class="player-equalizer">
-    <div class="eq-bar"></div>
-    <div class="eq-bar"></div>
-    <div class="eq-bar"></div>
-    <div class="eq-bar"></div>
-  </div>
-</div>
-
 <!-- TOAST -->
 <div class="toast" id="toast"></div>
 
@@ -1449,6 +1405,37 @@ textarea.wish-form-input{min-height:90px;resize:vertical;}
   function scrollToWishComposer(){
     var target = document.querySelector('.wish-compose-card');
     if(target) target.scrollIntoView({behavior:'smooth', block:'start'});
+  }
+
+  // ══ PHOTOS FILTER: All / College / Trip (Trip → IV) ══
+  function filterPhotosByCategory(category, el){
+    var bar = document.getElementById('photoCategoryFilter');
+    if(!bar) return;
+    var ivTab = bar.querySelector('[data-category="iv"]');
+
+    Array.prototype.forEach.call(bar.querySelectorAll('.gallery-tab'), function(tab){
+      tab.classList.remove('active');
+    });
+    el.classList.add('active');
+
+    // "IV" is a sub-option of "Trip" — only show it once Trip is selected
+    if(ivTab){
+      if(category === 'trip'){ ivTab.style.display = ''; }
+      else if(category !== 'iv'){ ivTab.style.display = 'none'; }
+    }
+
+    var grid = document.getElementById('memoriesGrid');
+    if(!grid) return;
+    Array.prototype.forEach.call(grid.children, function(card){
+      if(category === 'all'){ card.style.display = ''; return; }
+      // Prefer an explicit data-category set on the card (e.g. data-category="trip iv"),
+      // fall back to matching the card's visible text/tags if none is set.
+      var cardCategory = (card.getAttribute('data-category') || '').toLowerCase();
+      var isMatch = cardCategory
+        ? (' ' + cardCategory + ' ').indexOf(' ' + category + ' ') !== -1
+        : card.textContent.toLowerCase().indexOf(category) !== -1;
+      card.style.display = isMatch ? '' : 'none';
+    });
   }
 </script>
 
