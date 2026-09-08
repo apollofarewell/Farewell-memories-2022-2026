@@ -64,6 +64,33 @@ body{
 #countdownMsg{font-family:var(--font-heading);font-size:1.25rem;color:var(--pink);font-weight:800;z-index:1;letter-spacing:0.18em;text-transform:uppercase;text-shadow:0 0 20px rgba(255,94,142,0.6);}
 @keyframes popIn{from{transform:scale(0.4);opacity:0;}to{transform:scale(1);opacity:1;}}
 
+/* ══ MEDIA PROTECTION ══ */
+img, video {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  user-select: none;
+  -webkit-user-drag: none;
+  pointer-events: none;
+}
+.protect-wrap {
+  position: relative;
+  display: inline-block;
+  width: 100%;
+}
+.protect-wrap::after {
+  content: "";
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  z-index: 99;
+  -webkit-touch-callout: none;
+}
+/* Allow clicks/taps to pass through to the card (not the image) */
+.mem-card, .reel-card, .pinned-card, .student-card {
+  pointer-events: all;
+}
+
 /* ══ TOPBAR ══ */
 .topbar{
   height:58px;display:flex;align-items:center;justify-content:space-between;
@@ -1077,7 +1104,7 @@ textarea.wish-form-input{min-height:90px;resize:vertical;}
     <div class="gallery-tab active" data-category="all" onclick="filterPhotosByCategory('all', this)">All</div>
     <div class="gallery-tab" data-category="college" onclick="filterPhotosByCategory('college', this)">College</div>
     <div class="gallery-tab" data-category="trip" onclick="filterPhotosByCategory('trip', this)">Trip</div>
-    <div class="gallery-tab" data-category="iv" data-sub="trip" style="display:none;" onclick="filterPhotosByCategory('iv', this)">IV</div>
+    <div class="gallery-tab" data-category="iv" onclick="filterPhotosByCategory('iv', this)">IV</div>
   </div>
   <div class="memories-grid" id="memoriesGrid"></div>
 </div>
@@ -1407,22 +1434,15 @@ textarea.wish-form-input{min-height:90px;resize:vertical;}
     if(target) target.scrollIntoView({behavior:'smooth', block:'start'});
   }
 
-  // ══ PHOTOS FILTER: All / College / Trip (Trip → IV) ══
+  // ══ PHOTOS FILTER: All / College / Trip / IV ══
   function filterPhotosByCategory(category, el){
     var bar = document.getElementById('photoCategoryFilter');
     if(!bar) return;
-    var ivTab = bar.querySelector('[data-category="iv"]');
 
     Array.prototype.forEach.call(bar.querySelectorAll('.gallery-tab'), function(tab){
       tab.classList.remove('active');
     });
     el.classList.add('active');
-
-    // "IV" is a sub-option of "Trip" — only show it once Trip is selected
-    if(ivTab){
-      if(category === 'trip'){ ivTab.style.display = ''; }
-      else if(category !== 'iv'){ ivTab.style.display = 'none'; }
-    }
 
     var grid = document.getElementById('memoriesGrid');
     if(!grid) return;
@@ -1446,5 +1466,40 @@ textarea.wish-form-input{min-height:90px;resize:vertical;}
     : '/farewell/api';
 </script>
 <script src="./app.js"></script>
+
+<script>
+/* ══ MEDIA PROTECTION ══ */
+// Block right-click context menu
+document.addEventListener('contextmenu', function(e) {
+  if (e.target.tagName === 'IMG' || e.target.tagName === 'VIDEO') {
+    e.preventDefault();
+  }
+});
+
+// Block long press on mobile (prevents save image popup on iOS/Android)
+var longPressTimer;
+document.addEventListener('touchstart', function(e) {
+  if (e.target.tagName === 'IMG' || e.target.tagName === 'VIDEO') {
+    longPressTimer = setTimeout(function() { /* block */ }, 500);
+  }
+}, { passive: true });
+document.addEventListener('touchend', function() {
+  clearTimeout(longPressTimer);
+});
+
+// Block drag on images
+document.addEventListener('dragstart', function(e) {
+  if (e.target.tagName === 'IMG' || e.target.tagName === 'VIDEO') {
+    e.preventDefault();
+  }
+});
+
+// Block Ctrl+S (Save), Ctrl+U (View Source), Ctrl+P (Print)
+document.addEventListener('keydown', function(e) {
+  if (e.ctrlKey && (e.key === 's' || e.key === 'u' || e.key === 'p')) {
+    e.preventDefault();
+  }
+});
+</script>
 </body>
 </html>
