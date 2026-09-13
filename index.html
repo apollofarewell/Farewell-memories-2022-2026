@@ -193,6 +193,7 @@ img, video {
 .memories-grid{columns:3;column-gap:14px;}
 @media(max-width:860px){.memories-grid{columns:2;}}
 @media(max-width:520px){.memories-grid{columns:1;}}
+img.media-broken{object-fit:contain !important;background:#1a0f2e;opacity:0.85;}
 .mem-card{
   break-inside:avoid;margin-bottom:14px;background:var(--bg-card);
   backdrop-filter:blur(16px);border-radius:18px;border:1px solid var(--border-subtle);
@@ -200,7 +201,7 @@ img, video {
   box-shadow:0 8px 24px rgba(0,0,0,0.25);position:relative;
 }
 .mem-card:hover{transform:translateY(-4px);border-color:var(--border-glow);box-shadow:0 18px 45px rgba(0,0,0,0.5);}
-.mem-card-img-wrap{position:relative;overflow:hidden;}
+.mem-card-img-wrap{position:relative;overflow:hidden;cursor:zoom-in;}
 .mem-card-img-wrap img{width:100%;display:block;aspect-ratio:1;object-fit:cover;transition:transform 0.4s ease;}
 .mem-card:hover .mem-card-img-wrap img{transform:scale(1.03);}
 .mem-multi-badge{position:absolute;top:10px;right:10px;background:rgba(0,0,0,0.7);border-radius:8px;padding:3px 9px;font-size:0.65rem;font-weight:800;color:#fff;backdrop-filter:blur(8px);z-index:2;}
@@ -648,7 +649,7 @@ img, video {
 .student-num{position:absolute;top:8px;left:8px;background:rgba(0,0,0,0.65);backdrop-filter:blur(6px);color:#fff;font-size:0.62rem;font-weight:800;padding:3px 8px;border-radius:10px;border:1px solid rgba(255,255,255,0.12);}
 .student-info{padding:12px 10px 14px;text-align:center;background:linear-gradient(to bottom, rgba(0,0,0,0.1), rgba(0,0,0,0.45));display:flex;flex-direction:column;gap:3px;flex:1;}
 .student-name{font-family:var(--font-heading);font-size:0.85rem;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.student-vibes{font-size:0.68rem;color:var(--text-muted);font-style:italic;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.student-vibes{display:none;} /* tag name hidden per config */
 
 /* ── GALLERY CATEGORY TABS ── */
 .gallery-tabs{display:flex;gap:8px;overflow-x:auto;padding-bottom:10px;margin-bottom:16px;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
@@ -1056,7 +1057,7 @@ textarea.wish-form-input{min-height:90px;resize:vertical;}
   <div class="students-toolbar">
     <div class="search-input-wrap">
       <span class="search-icon">🔍</span>
-      <input class="search-input" id="studentSearchInput" placeholder="Search by name, roll no, vibes..." oninput="searchStudents(this.value)"/>
+      <input class="search-input" id="studentSearchInput" placeholder="Search by name or roll no..." oninput="searchStudents(this.value)"/>
     </div>
     <div class="topbar-badge" id="studentCountBadge">100 Students</div>
   </div>
@@ -1204,9 +1205,19 @@ textarea.wish-form-input{min-height:90px;resize:vertical;}
       </div>
       <div class="det-liked-by" id="detLikedBy" style="display:none"></div>
       <div class="det-comments" id="detComments"></div>
-      <div class="det-add-comment">
-        <input class="det-comment-input" id="detCommentInput" placeholder="Add a comment..." onkeydown="if(event.key==='Enter')detAddComment()"/>
-        <button class="det-send-btn" onclick="detAddComment()">➤</button>
+      <div class="det-add-comment" style="flex-direction:column;align-items:stretch;gap:6px;padding-bottom:14px;">
+        <input class="det-comment-input" id="detCommentName"
+               placeholder="Your name (required) *"
+               autocomplete="name"
+               onkeydown="if(event.key==='Enter')document.getElementById('detCommentInput').focus()"
+               style="border-radius:14px;font-size:0.72rem;"/>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input class="det-comment-input" id="detCommentInput"
+                 placeholder="Add a comment..."
+                 onkeydown="if(event.key==='Enter')detAddComment()"
+                 style="flex:1;"/>
+          <button class="det-send-btn" onclick="detAddComment()">➤</button>
+        </div>
       </div>
     </div>
   </div>
@@ -1494,6 +1505,91 @@ document.addEventListener('keydown', function(e) {
     e.preventDefault();
   }
 });
+</script>
+
+<script>
+// ══ MEMORY PHOTO → FULL-VIEW ON TAP ══
+// Tapping the photo area inside any memory card opens the mem-fullview overlay.
+// Works with capture-phase so it fires before app.js opens the detail panel.
+(function () {
+  var _fvSrcs = [], _fvIdx = 0;
+
+  // Define mfvNav (overrides app.js if it set one — same element IDs, same purpose)
+  window.mfvNav = function (dir) {
+    if (!_fvSrcs.length) return;
+    _fvIdx = (_fvIdx + dir + _fvSrcs.length) % _fvSrcs.length;
+    var img = document.getElementById('mfvImg');
+    var cnt = document.getElementById('mfvCount');
+    if (img) img.src = _fvSrcs[_fvIdx];
+    if (cnt) cnt.textContent = (_fvIdx + 1) + ' / ' + _fvSrcs.length;
+  };
+
+  // Fallback close (app.js likely defines this; keep as safety net)
+  window.closeMemFullView = window.closeMemFullView || function () {
+    document.getElementById('memFullView').classList.remove('open');
+  };
+
+  // Capture-phase: intercept taps on memory card photo wrappers
+  document.addEventListener('click', function (e) {
+    var wrap = e.target.closest('.mem-card-img-wrap');
+    if (!wrap) return;
+    var img = wrap.querySelector('img');
+    if (!img || !img.src) return;
+
+    _fvSrcs = [img.src];
+    _fvIdx  = 0;
+
+    var fv = document.getElementById('memFullView');
+    var fi = document.getElementById('mfvImg');
+    var fc = document.getElementById('mfvCount');
+    var fl = document.getElementById('mfvLeft');
+    var fr = document.getElementById('mfvRight');
+    if (!fv || !fi) return;
+
+    fi.src = img.src;
+    // Single photo — hide nav arrows and count
+    if (fc) fc.style.display = 'none';
+    if (fl) fl.style.display = 'none';
+    if (fr) fr.style.display = 'none';
+    fv.classList.add('open');
+
+    e.stopPropagation();   // prevent mem-detail overlay from also opening
+    e.preventDefault();
+  }, true /* capture */);
+})();
+
+// ══ COMMENT: NAME IS REQUIRED ══
+// Wraps detAddComment (defined in app.js) with a name-check gate.
+// If no name is entered, highlights the field and blocks submission.
+(function () {
+  setTimeout(function () {
+    var _orig = window.detAddComment;
+    window.detAddComment = function () {
+      var nameEl = document.getElementById('detCommentName');
+      var name   = nameEl ? nameEl.value.trim() : '';
+
+      if (!name) {
+        if (nameEl) {
+          // Flash the name field pink
+          nameEl.style.borderColor  = 'rgba(255,94,142,0.9)';
+          nameEl.style.boxShadow    = '0 0 12px rgba(255,94,142,0.45)';
+          nameEl.focus();
+          setTimeout(function () {
+            nameEl.style.borderColor = '';
+            nameEl.style.boxShadow   = '';
+          }, 2200);
+        }
+        if (typeof showToast === 'function') showToast('Please enter your name to comment 📝');
+        return; // block submission
+      }
+
+      // Expose name so app.js can pick it up when building the comment
+      window._commentAuthorName = name;
+
+      if (typeof _orig === 'function') _orig();
+    };
+  }, 600); // slight delay so app.js has finished defining detAddComment
+})();
 </script>
 </body>
 </html>

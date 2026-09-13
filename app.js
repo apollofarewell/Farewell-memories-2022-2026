@@ -8,6 +8,65 @@ const API_URL = (
 
 const MAX_VIDEO_SIZE = 500 * 1024 * 1024; // 500MB
 
+// ══ BROKEN MEDIA HANDLING ══
+// Photos/videos are stored as plain URLs returned by the upload API (R2 or
+// server fallback). If a URL is missing, was uploaded over http:// on an
+// https:// page (mixed content gets silently blocked by the browser), or
+// points at a file that no longer exists, the <img>/<video> just fails with
+// no visual explanation. These two helpers make that failure visible and
+// recoverable instead of a blank/broken icon.
+
+const BROKEN_IMG_PLACEHOLDER =
+  'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400">
+      <rect width="100%" height="100%" fill="#1a0f2e"/>
+      <text x="50%" y="46%" font-size="42" text-anchor="middle" dominant-baseline="middle">🖼️</text>
+      <text x="50%" y="62%" font-size="13" fill="#a694c9" font-family="sans-serif" text-anchor="middle">Photo unavailable</text>
+    </svg>`
+  );
+
+// Normalizes a stored media URL: trims whitespace and upgrades an
+// accidental http:// link to https:// so it isn't blocked as mixed content
+// on this (https) page. Returns '' for empty/missing URLs so callers can
+// decide how to render the "no photo" state instead of pointing <img> at
+// the current page (which is what src="" does in some browsers).
+function normalizeMediaUrl(url) {
+  if (!url || typeof url !== 'string') return '';
+  const trimmed = url.trim();
+  if (!trimmed) return '';
+  if (location.protocol === 'https:' && trimmed.startsWith('http://')) {
+    return 'https://' + trimmed.slice('http://'.length);
+  }
+  return trimmed;
+}
+
+// Delegated, capture-phase listener: image "error" events don't bubble, so
+// this is attached on window with capture:true to catch every broken <img>
+// on the page (memory grid, pinned row, detail viewer, unified gallery,
+// student photos, hero photo) in one place. On first failure it retries
+// once after a short delay (covers transient network blips / a
+// cold-starting backend); if the retry also fails, it swaps in a labeled
+// placeholder instead of the browser's default broken-image icon and logs
+// the dead URL to the console so it's easy to spot which uploads need
+// re-posting.
+window.addEventListener('error', function (e) {
+  const el = e.target;
+  if (!el || el.tagName !== 'IMG' || el.dataset.brokenHandled) return;
+  if (el.src === BROKEN_IMG_PLACEHOLDER) return;
+
+  if (!el.dataset.retried) {
+    el.dataset.retried = '1';
+    const originalSrc = el.getAttribute('src');
+    setTimeout(() => { if (originalSrc) el.src = originalSrc + (originalSrc.includes('?') ? '&' : '?') + 'retry=' + Date.now(); }, 800);
+    return;
+  }
+
+  el.dataset.brokenHandled = '1';
+  console.warn('[farewell] photo failed to load, showing placeholder:', el.getAttribute('src'));
+  el.src = BROKEN_IMG_PLACEHOLDER;
+  el.classList.add('media-broken');
+}, true);
+
 // ══ DIRECT CLIENT-TO-R2 PRESIGNED UPLOAD HELPER ══
 async function uploadFileDirectToR2(file, folder = 'farewell/images') {
   const isVideo = file.type.startsWith('video');
@@ -61,7 +120,7 @@ async function setHeroPhoto(e){
     showToast('Uploading college photo directly to Cloudflare R2... ⏳');
     const photoUrl = await uploadFileDirectToR2(file, 'farewell/hero');
     const img = document.getElementById('heroCollegeImg');
-    if (img) img.src = photoUrl;
+    if (img) img.src = normalizeMediaUrl(photoUrl);
     const batchCard = document.getElementById('batchCardPhoto');
     if (batchCard) batchCard.classList.add('has-photo');
     showToast('📷 College photo updated on cloud!');
@@ -169,7 +228,7 @@ function renderStudents(list){
     const card = document.createElement('div');
     card.className = 'student-card';
     const photoInner = s.photo_url
-      ? `<img src="${s.photo_url}" alt="${esc(s.name)}"/>`
+      ? `<img src="${normalizeMediaUrl(s.photo_url)}" alt="${esc(s.name)}"/>`
       : `<div class="initials-ring"><span>${(s.name[0] || '?').toUpperCase()}</span></div>`;
     card.innerHTML = `<div class="student-photo">${photoInner}</div><div class="student-num">${realIdx >= 0 ? realIdx + 1 : localIdx + 1}</div><div class="student-info"><div class="student-name">${esc(s.name)}</div><div class="student-vibes">${esc(s.vibes)}</div></div>`;
     card.addEventListener('click', () => openPhotoViewer(s, 'student'));
@@ -208,7 +267,7 @@ function openPhotoViewer(s, type){
   const pv = document.getElementById('photoViewer');
   const av = document.getElementById('pvAvatar');
   if (s.photo_url) {
-    av.innerHTML = `<img src="${s.photo_url}" alt="${esc(s.name)}"/>`;
+    av.innerHTML = `<img src="${normalizeMediaUrl(s.photo_url)}" alt="${esc(s.name)}"/>`;
     av.style.background = 'none';
   } else {
     av.innerHTML = `<span>${(s.name[0] || '?').toUpperCase()}</span>`;
@@ -451,8 +510,8 @@ let unifiedMediaIndex = 0;
 
 function buildUnifiedMedia(){
   unifiedMedia = [];
-  memories.forEach((m, mi) => (m.photos || []).forEach((url, pi) => unifiedMedia.push({ type: 'image', url, meta: m, source: 'memory', memIndex: mi, photoIndex: pi })));
-  flashbacks.forEach((r, ri) => unifiedMedia.push({ type: 'video', url: r.video_url, meta: r, source: 'flashback', reelIndex: ri }));
+  memories.forEach((m, mi) => (m.photos || []).forEach((url, pi) => unifiedMedia.push({ type: 'image', url: normalizeMediaUrl(url), meta: m, source: 'memory', memIndex: mi, photoIndex: pi })));
+  flashbacks.forEach((r, ri) => unifiedMedia.push({ type: 'video', url: normalizeMediaUrl(r.video_url), meta: r, source: 'flashback', reelIndex: ri }));
 }
 function openUnifiedMedia(item){
   buildUnifiedMedia();
@@ -476,7 +535,7 @@ function renderUnifiedMedia(){
   holder.innerHTML = '';
   if (item.type === 'video') {
     const v = document.createElement('video');
-    v.src = item.url;
+    v.src = normalizeMediaUrl(item.url);
     v.playsInline = true;
     v.setAttribute('playsinline', '');
     v.setAttribute('webkit-playsinline', '');
@@ -488,7 +547,7 @@ function renderUnifiedMedia(){
     v.play().catch(() => {});
   } else {
     const img = document.createElement('img');
-    img.src = item.url;
+    img.src = normalizeMediaUrl(item.url) || BROKEN_IMG_PLACEHOLDER;
     img.alt = 'Farewell memory';
     img.draggable = false;
     holder.appendChild(img);
@@ -647,7 +706,7 @@ function renderMemories(){
     card.className = 'mem-card';
     card.innerHTML = `
       <div class="mem-card-img-wrap gallery-photo-wrap">
-        <img src="${photos[0] || ''}" loading="lazy" alt=""/>
+        <img src="${normalizeMediaUrl(photos[0]) || BROKEN_IMG_PLACEHOLDER}" loading="lazy" alt=""/>
         <button class="pin-toggle-btn ${m.pinned ? 'pinned' : ''}" onclick="event.stopPropagation();togglePinMemory(${i})" title="${m.pinned ? 'Unpin' : 'Pin to top'}">📌</button>
         ${photos.length > 1 ? `<div class="mem-multi-badge">⧉ ${photos.length}</div>` : ''}
       </div>
@@ -718,7 +777,7 @@ function renderPinnedMemories(){
     const card = document.createElement('div');
     card.className = 'pinned-card';
     card.innerHTML = `
-      <img src="${photos[0] || ''}" loading="lazy" alt=""/>
+      <img src="${normalizeMediaUrl(photos[0]) || BROKEN_IMG_PLACEHOLDER}" loading="lazy" alt=""/>
       <button class="pinned-unpin-btn" onclick="event.stopPropagation();togglePinMemory(${i})" title="Unpin">📌</button>
       ${photos.length > 1 ? `<div class="pinned-multi-badge">⧉ ${photos.length}</div>` : ''}
     `;
@@ -766,7 +825,7 @@ function openMemDetail(i){
   photosWrap.querySelectorAll('img').forEach(img => img.remove());
   photos.forEach((url, pi) => {
     const img = document.createElement('img');
-    img.src = url;
+    img.src = normalizeMediaUrl(url) || BROKEN_IMG_PLACEHOLDER;
     img.className = pi === 0 ? 'active' : '';
     img.onclick = () => openMemFullView();
     photosWrap.insertBefore(img, photosWrap.querySelector('.det-nav.right'));
@@ -808,7 +867,7 @@ function openMemFullView(){
   if (openMemIdx === null) return;
   const m = memories[openMemIdx];
   const photos = m.photos || [];
-  document.getElementById('mfvImg').src = photos[detPhotoIdx] || '';
+  document.getElementById('mfvImg').src = normalizeMediaUrl(photos[detPhotoIdx]) || BROKEN_IMG_PLACEHOLDER;
   document.getElementById('mfvCount').textContent = photos.length > 1 ? `${detPhotoIdx + 1} / ${photos.length}` : '';
   document.getElementById('mfvLeft').style.display = photos.length > 1 ? 'flex' : 'none';
   document.getElementById('mfvRight').style.display = photos.length > 1 ? 'flex' : 'none';
@@ -913,7 +972,7 @@ function renderFlashbacks(){
     card.className = 'reel-card';
     card.innerHTML = `
       <div class="reel-thumb">
-        <video src="${r.video_url}" preload="metadata" muted playsinline></video>
+        <video src="${normalizeMediaUrl(r.video_url)}" preload="metadata" muted playsinline></video>
         <div class="reel-play-overlay"><div class="reel-play-btn">▶</div></div>
         <button class="pin-toggle-btn ${r.pinned ? 'pinned' : ''}" onclick="event.stopPropagation();togglePinFlashback(${i})" title="${r.pinned ? 'Unpin' : 'Pin to top'}">📌</button>
         <div class="reel-likes">♥ ${r.likes_count || 0}</div>
@@ -945,7 +1004,7 @@ function renderPinnedFlashbacks(){
     const card = document.createElement('div');
     card.className = 'pinned-card pinned-reel-card';
     card.innerHTML = `
-      <video src="${r.video_url}" preload="metadata" muted playsinline></video>
+      <video src="${normalizeMediaUrl(r.video_url)}" preload="metadata" muted playsinline></video>
       <div class="pinned-play-badge">▶</div>
       <button class="pinned-unpin-btn" onclick="event.stopPropagation();togglePinFlashback(${i})" title="Unpin">📌</button>
     `;
@@ -973,7 +1032,7 @@ function openReel(i){
   const r = flashbacks[i];
   document.getElementById('reelOverlay').classList.add('open');
   const vid = document.getElementById('reelVideo');
-  vid.src = r.video_url;
+  vid.src = normalizeMediaUrl(r.video_url);
   vid.play().catch(() => {});
   document.getElementById('reelTitle').textContent = r.title;
   document.getElementById('reelSub').textContent = (r.uploader_name || 'Anonymous') + ' • ' + (r.created_at ? new Date(r.created_at).toLocaleDateString() : 'Recent');
@@ -1104,7 +1163,7 @@ async function loadDynamicSiteData() {
         dynamicHeroSlides = cfg.hero_slides;
         const heroImg = document.getElementById('heroCollegeImg');
         if (heroImg && cfg.hero_slides[0]?.image_url) {
-          heroImg.src = cfg.hero_slides[0].image_url;
+          heroImg.src = normalizeMediaUrl(cfg.hero_slides[0].image_url);
         }
       }
     }
