@@ -1536,7 +1536,20 @@ document.addEventListener('keydown', function(e) {
     var img = wrap.querySelector('img');
     if (!img || !img.src) return;
 
-    _fvSrcs = [img.src];
+    // Look up the underlying memory so we can open its FULL photo set
+    // (app.js only ever renders photos[0] as the card's cover image).
+    var fullPhotos = null;
+    if (typeof memories !== 'undefined' && typeof normalizeMediaUrl === 'function') {
+      var match = memories.find(function (m) {
+        var cover = (m.photos || [])[0];
+        return cover && normalizeMediaUrl(cover) === img.src;
+      });
+      if (match) {
+        fullPhotos = (match.photos || []).map(function (u) { return normalizeMediaUrl(u); });
+      }
+    }
+
+    _fvSrcs = (fullPhotos && fullPhotos.length) ? fullPhotos : [img.src];
     _fvIdx  = 0;
 
     var fv = document.getElementById('memFullView');
@@ -1546,11 +1559,12 @@ document.addEventListener('keydown', function(e) {
     var fr = document.getElementById('mfvRight');
     if (!fv || !fi) return;
 
-    fi.src = img.src;
-    // Single photo — hide nav arrows and count
-    if (fc) fc.style.display = 'none';
-    if (fl) fl.style.display = 'none';
-    if (fr) fr.style.display = 'none';
+    fi.src = _fvSrcs[0];
+
+    var multi = _fvSrcs.length > 1;
+    if (fc) { fc.style.display = multi ? '' : 'none'; fc.textContent = multi ? ('1 / ' + _fvSrcs.length) : ''; }
+    if (fl) fl.style.display = multi ? 'flex' : 'none';
+    if (fr) fr.style.display = multi ? 'flex' : 'none';
     fv.classList.add('open');
 
     e.stopPropagation();   // prevent mem-detail overlay from also opening
