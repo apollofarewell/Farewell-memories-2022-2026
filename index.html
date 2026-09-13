@@ -1538,15 +1538,15 @@ document.addEventListener('keydown', function(e) {
 
     // Look up the underlying memory so we can open its FULL photo set
     // (app.js only ever renders photos[0] as the card's cover image).
+    // Use the card's data-mem-index for an exact match — comparing URLs
+    // directly is unreliable (retry query-params, http→https rewrites, etc.)
     var fullPhotos = null;
-    if (typeof memories !== 'undefined' && typeof normalizeMediaUrl === 'function') {
-      var match = memories.find(function (m) {
-        var cover = (m.photos || [])[0];
-        return cover && normalizeMediaUrl(cover) === img.src;
+    var cardEl = wrap.closest('.mem-card');
+    var idx = cardEl ? parseInt(cardEl.dataset.memIndex, 10) : NaN;
+    if (typeof memories !== 'undefined' && !isNaN(idx) && memories[idx]) {
+      fullPhotos = (memories[idx].photos || []).map(function (u) {
+        return (typeof normalizeMediaUrl === 'function') ? normalizeMediaUrl(u) : u;
       });
-      if (match) {
-        fullPhotos = (match.photos || []).map(function (u) { return normalizeMediaUrl(u); });
-      }
     }
 
     _fvSrcs = (fullPhotos && fullPhotos.length) ? fullPhotos : [img.src];

@@ -704,6 +704,7 @@ function renderMemories(){
     const photos = m.photos || [];
     const card = document.createElement('div');
     card.className = 'mem-card';
+    card.dataset.memIndex = i;
     card.innerHTML = `
       <div class="mem-card-img-wrap gallery-photo-wrap">
         <img src="${normalizeMediaUrl(photos[0]) || BROKEN_IMG_PLACEHOLDER}" loading="lazy" alt=""/>
