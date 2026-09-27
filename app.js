@@ -316,39 +316,68 @@ async function addMessage(){
   const emoji = document.getElementById('msgEmoji').value;
   if (!text) { showToast('Write something! 😅'); return; }
 
-  try {
-    const res = await fetch(`${API_URL}/wishes`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ author_name: name, emoji, text })
-    });
-    const newWish = await res.json();
-    if (!res.ok) throw new Error(newWish.error || 'Failed to post wish');
+  let newWish = null;
 
-    const grid = document.getElementById('messagesGrid');
+  // Try API if available
+  if (typeof API_URL !== 'undefined' && API_URL) {
+    try {
+      const res = await fetch(`${API_URL}/wishes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ author_name: name, emoji, text })
+      });
+      if (res.ok) {
+        newWish = await res.json();
+      }
+    } catch(err) {
+      // Backend is offline, continue to local fallback
+    }
+  }
+
+  // Offline / Static JSON fallback
+  if (!newWish) {
+    newWish = {
+      id: Date.now(),
+      author_name: name,
+      emoji: emoji || '❤️',
+      text: text,
+      created_at: new Date().toISOString()
+    };
+    try {
+      const localWishes = JSON.parse(localStorage.getItem('farewell_local_wishes') || '[]');
+      localWishes.unshift(newWish);
+      localStorage.setItem('farewell_local_wishes', JSON.stringify(localWishes));
+    } catch(e){}
+  }
+
+  const grid = document.getElementById('messagesGrid');
+  if (grid) {
     const card = document.createElement('div');
     card.className = 'message-card envelope-anim';
     card.innerHTML = `<div class="msg-emoji">${esc(newWish.emoji)}</div><div class="msg-quote">"</div><div class="msg-text">${esc(newWish.text)}</div><div class="msg-author">— ${esc(newWish.author_name)}</div><button class="card-del" onclick="deleteWishCard(${newWish.id}, this)">🗑</button>`;
     grid.prepend(card);
-    document.getElementById('msgName').value = '';
-    document.getElementById('msgText').value = '';
-    updateWishCount();
-    showToast('Wish posted! 🥹');
-  } catch(err) {
-    showToast(err.message);
   }
+  document.getElementById('msgName').value = '';
+  document.getElementById('msgText').value = '';
+  updateWishCount();
+  showToast('Wish posted! 🥹');
 }
 
 async function deleteWishCard(id, btn){
-  try {
-    await fetch(`${API_URL}/wishes/${id}`, { method: 'DELETE' });
-    btn.closest('.message-card').remove();
-    updateWishCount();
-    showToast('Wish deleted');
-  } catch(err) {
-    btn.closest('.message-card').remove();
-    updateWishCount();
+  if (typeof API_URL !== 'undefined' && API_URL) {
+    try {
+      await fetch(`${API_URL}/wishes/${id}`, { method: 'DELETE' });
+    } catch(err) {}
   }
+  try {
+    const localWishes = JSON.parse(localStorage.getItem('farewell_local_wishes') || '[]');
+    const filtered = localWishes.filter(w => w.id !== id);
+    localStorage.setItem('farewell_local_wishes', JSON.stringify(filtered));
+  } catch(e){}
+
+  btn.closest('.message-card')?.remove();
+  updateWishCount();
+  showToast('Wish deleted');
 }
 
 function updateWishCount(){
@@ -876,21 +905,36 @@ async function detAddComment(){
   if (!text) return;
   const name = 'Anonymous 🕵️';
 
-  try {
-    const res = await fetch(`${API_URL}/memories/${m.id}/comments`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ author_name: name, text })
-    });
-    const newComment = await res.json();
-    m.comments = m.comments || [];
-    m.comments.push(newComment);
-    inp.value = '';
-    renderDetComments();
-    renderMemories();
-  } catch(err){
-    showToast(err.message);
+  let newComment = null;
+  if (typeof API_URL !== 'undefined' && API_URL) {
+    try {
+      const res = await fetch(`${API_URL}/memories/${m.id}/comments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ author_name: name, text })
+      });
+      if (res.ok) {
+        newComment = await res.json();
+      }
+    } catch(err){}
   }
+
+  if (!newComment) {
+    newComment = {
+      id: Date.now(),
+      memory_id: m.id,
+      author_name: name,
+      text: text,
+      created_at: new Date().toISOString()
+    };
+  }
+
+  m.comments = m.comments || [];
+  m.comments.push(newComment);
+  inp.value = '';
+  renderDetComments();
+  renderMemories();
+  showToast('Comment added! 💬');
 }
 function closeMemDetail(){
   document.getElementById('memOverlay').classList.remove('open');
@@ -1081,19 +1125,51 @@ function renderCredits(){
 function openCredits(){ renderCredits(); const o = document.getElementById('creditsOverlay'); if (o) o.classList.add('open'); }
 function closeCredits(){ const o = document.getElementById('creditsOverlay'); if (o) o.classList.remove('open'); }
 
-// ══ DYNAMIC BOOTSTRAPPER (FETCH ALL DATA ON LOAD) ══
+// ══ DYNAMIC BOOTSTRAPPER (LOCAL JSON FIRST, API AS FALLBACK) ══
 async function loadDynamicSiteData() {
   try {
-    const [cfgRes, studentsRes, memsRes, reelsRes, wishesRes] = await Promise.all([
-      fetch(`${API_URL}/config`).catch(() => null),
-      fetch(`${API_URL}/students`).catch(() => null),
-      fetch(`${API_URL}/memories`).catch(() => null),
-      fetch(`${API_URL}/flashbacks`).catch(() => null),
-      fetch(`${API_URL}/wishes`).catch(() => null)
-    ]);
+    let cfg = null;
+    let studentsData = null;
+    let memsData = null;
+    let reelsData = null;
+    let wishesData = null;
 
-    if (cfgRes && cfgRes.ok) {
-      const cfg = await cfgRes.json();
+    // 1. Primary: Load all data from static data.json (Serverless mode)
+    try {
+      const staticRes = await fetch('./data.json', { cache: 'no-store' }).catch(() => null);
+      if (staticRes && staticRes.ok) {
+        const fullData = await staticRes.json();
+        if (fullData) {
+          cfg = fullData.config;
+          studentsData = fullData.students;
+          memsData = fullData.memories;
+          reelsData = fullData.flashbacks;
+          wishesData = fullData.wishes;
+          console.log('[Data Loader] Serving site directly from static data.json');
+        }
+      }
+    } catch(e) {
+      console.warn('[Data Loader] Static data.json load failed, trying API fallback...', e);
+    }
+
+    // 2. Secondary fallback: Fetch live from backend API if data.json was missing
+    if (!studentsData && typeof API_URL !== 'undefined' && API_URL) {
+      const [cfgRes, studentsRes, memsRes, reelsRes, wishesRes] = await Promise.all([
+        fetch(`${API_URL}/config`).catch(() => null),
+        fetch(`${API_URL}/students`).catch(() => null),
+        fetch(`${API_URL}/memories`).catch(() => null),
+        fetch(`${API_URL}/flashbacks`).catch(() => null),
+        fetch(`${API_URL}/wishes`).catch(() => null)
+      ]);
+
+      if (cfgRes && cfgRes.ok) cfg = await cfgRes.json();
+      if (studentsRes && studentsRes.ok) studentsData = await studentsRes.json();
+      if (memsRes && memsRes.ok) memsData = await memsRes.json();
+      if (reelsRes && reelsRes.ok) reelsData = await reelsRes.json();
+      if (wishesRes && wishesRes.ok) wishesData = await wishesRes.json();
+    }
+
+    if (cfg) {
       if (cfg.site_title) document.title = cfg.site_title;
       if (cfg.logo_text) {
         const logo = document.getElementById('siteLogo');
@@ -1109,37 +1185,45 @@ async function loadDynamicSiteData() {
       }
     }
 
-    if (studentsRes && studentsRes.ok) {
-      students = await studentsRes.json();
+    if (studentsData && studentsData.length) {
+      students = studentsData;
       renderStudents(students);
     }
 
-    if (memsRes && memsRes.ok) {
-      memories = await memsRes.json();
+    if (memsData && memsData.length) {
+      memories = memsData;
       renderGalleryTabs();
       renderMemories();
     }
 
-    if (reelsRes && reelsRes.ok) {
-      flashbacks = await reelsRes.json();
+    if (reelsData && reelsData.length) {
+      flashbacks = reelsData;
       renderFlashbacks();
     }
 
-    if (wishesRes && wishesRes.ok) {
-      const wishes = await wishesRes.json();
-      const grid = document.getElementById('messagesGrid');
-      if (grid && wishes.length) {
-        grid.innerHTML = wishes.map(w => `
-          <div class="message-card">
-            <div class="msg-emoji">${esc(w.emoji)}</div>
-            <div class="msg-quote">"</div>
-            <div class="msg-text">${esc(w.text)}</div>
-            <div class="msg-author">— ${esc(w.author_name)}</div>
-            <button class="card-del" onclick="deleteWishCard(${w.id}, this)">🗑</button>
-          </div>
-        `).join('');
-        updateWishCount();
+    // Merge static wishes with any locally posted wishes in this browser
+    let mergedWishes = wishesData || [];
+    try {
+      const localWishes = JSON.parse(localStorage.getItem('farewell_local_wishes') || '[]');
+      if (localWishes.length) {
+        const existingIds = new Set(mergedWishes.map(w => w.id));
+        const newLocal = localWishes.filter(w => !existingIds.has(w.id));
+        mergedWishes = [...newLocal, ...mergedWishes];
       }
+    } catch(e) {}
+
+    const grid = document.getElementById('messagesGrid');
+    if (grid && mergedWishes.length) {
+      grid.innerHTML = mergedWishes.map(w => `
+        <div class="message-card">
+          <div class="msg-emoji">${esc(w.emoji)}</div>
+          <div class="msg-quote">"</div>
+          <div class="msg-text">${esc(w.text)}</div>
+          <div class="msg-author">— ${esc(w.author_name)}</div>
+          <button class="card-del" onclick="deleteWishCard(${w.id}, this)">🗑</button>
+        </div>
+      `).join('');
+      updateWishCount();
     }
   } catch (err) {
     console.warn('[API Load Warning]', err);

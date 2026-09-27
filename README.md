@@ -12,13 +12,14 @@ The official B.Pharmacy Batch 2022–2026 Farewell Memories website, hosted stat
 
 ## 🏗️ Architecture
 
-- **Frontend (This Repository)**: Static HTML5, CSS3, and Vanilla JavaScript (`index.html` and `app.js`), hosted on GitHub Pages.
-- **Backend API & Admin Portal**: Hosted separately on AWS EC2 at [Madhukaran-R/farewell-backend](https://github.com/Madhukaran-R/farewell-backend).
-- **Media & CDN Storage**: Cloudflare R2 Object Storage (`https://media.errand.ltd`).
+- **Frontend & Data (This Repository)**: Static HTML5, CSS3, and Vanilla JavaScript (`index.html` and `app.js`), loading from `data.json` hosted on GitHub Pages.
+- **Media & CDN Storage**: Cloudflare R2 Object Storage (`https://media.errand.ltd`) serving all student portraits, memory photos, and video flashbacks with zero egress fees.
+- **Backend (Optional / Archived)**: Originally managed via Node.js/Express backend at [Madhukaran-R/farewell-backend](https://github.com/Madhukaran-R/farewell-backend).
 
 ---
 
 ## ⚙️ How It Works
 
-- The site fetches all dynamic content (100 students directory, anthem prescription, memories, video flashbacks, and wishes) in real-time from `https://apps.errand.ltd/farewell/api/*`.
-- Uploads (photos & up to 500MB videos) stream directly from the user's browser to Cloudflare R2 via presigned URLs.
+- The site loads all batch content (100 students directory, anthem prescription, memories, video flashbacks, and wishes) directly from the static `data.json` file in the repository.
+- All media assets (photos, student portraits, and 500MB videos) stream directly from Cloudflare R2 CDN (`https://media.errand.ltd`).
+- Runs 100% serverless on GitHub Pages with zero ongoing backend server maintenance or hosting costs.
